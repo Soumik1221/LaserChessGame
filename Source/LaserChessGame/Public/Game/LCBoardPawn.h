@@ -62,6 +62,9 @@ protected:
 public:
 	/** Initialize board pawn */
 	void InitServerBoardPawn(class ALCBoardTile* InTile, int32 InIndex, bool bIsTeamA, EPawnType InType);
+
+	/** Called only for clients to update their visuals */
+	void UpdatePawnsVisualsForClients();
 	
 	/** Set tile this piece is on. */
 	UFUNCTION(BlueprintCallable, Category = "Pawn")

@@ -20,6 +20,8 @@ ALCBoardPawn::ALCBoardPawn(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	bAlwaysRelevant = true;
 	bReplicates = true;
+	PawnTeam = EPawnTeam::EPT_TeamA;
+	PawnType = EPawnType::EPT_Laser;
 }
 
 void ALCBoardPawn::BeginPlay()
@@ -62,6 +64,15 @@ void ALCBoardPawn::InitServerBoardPawn(class ALCBoardTile* InTile, int32 InIndex
 		OnPawnTypeChanged(PawnType);
 		OnPawnTeamChanged(PawnTeam);
 	}
+}
+
+void ALCBoardPawn::UpdatePawnsVisualsForClients()
+{
+	if(PawnType == EPawnType::EPT_Laser)
+		OnPawnTypeChanged(PawnType);
+	
+	if(PawnTeam == EPawnTeam::EPT_TeamA)
+		OnPawnTeamChanged(PawnTeam);
 }
 
 void ALCBoardPawn::SetTile(ALCBoardTile* InTile)

@@ -53,6 +53,9 @@ public:
 	/** Initialize board tile [Server] */
 	void InitServerBoardTile(uint8 RowIndex, uint8 ColumnIndex);
 
+	/** Called only for clients to update their visuals */
+	void UpdateTilesVisualsForClients();
+	
 	/** Return what pawn this tile is holding. */
 	UFUNCTION(BlueprintCallable, Category = "Tile")
 	class ALCBoardPawn* GetPawn() const { return PawnRef; }

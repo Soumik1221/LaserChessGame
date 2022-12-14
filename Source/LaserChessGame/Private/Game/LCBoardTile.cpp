@@ -73,6 +73,15 @@ void ALCBoardTile::InitServerBoardTile(uint8 RowIndex, uint8 ColumnIndex)
 	}
 }
 
+void ALCBoardTile::UpdateTilesVisualsForClients()
+{
+	// Only update for both tiles as they are not updated because TileType does not changed.
+	if(TileType == ETileType::ETT_Both)
+	{
+		OnTileTypeChanged(TileType);
+	}
+}
+
 void ALCBoardTile::SetPawn(ALCBoardPawn* InPawn)
 {
 	if(PawnRef != InPawn)

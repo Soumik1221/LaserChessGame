@@ -38,10 +38,10 @@ private:
 	class ALCGameMode* ServerGameMode;
 
 	/** All spawned board tiles */
-	TArray<class ALCBoardTile*, TFixedAllocator<LC_BOARD_ROWS * LC_BOARD_COLUMNS>> BoardTiles;
+	TStaticArray<class ALCBoardTile*, LC_BOARD_ROWS * LC_BOARD_COLUMNS> BoardTiles;
 
 	/** All spawned board pawn pieces */
-	TArray<class ALCBoardPawn*, TFixedAllocator<LC_BOARD_Pawns>> BoardPawns;
+	TStaticArray<class ALCBoardPawn*, LC_BOARD_PAWNS> BoardPawns;
 
 protected:
 	ALCGameState(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
@@ -54,6 +54,12 @@ public:
 	/** Spawn laser chess game board pawn pieces based on board setup. */
 	void SpawnGamePawnServer(EBoardSetup Setup);
 
+	/** Register all board tiles and pawns for clients, as stored arrays are not replicated. */
+	void RegisterTilesAndPawnsClient(TArray<AActor*>& InTileActors, TArray<AActor*>& InPawnActors);
+
+	/** Return true if client version of the game state has every pawns and client references */
+	bool IsClientGameStateHaveAllTilesAndPawns() const;
+	
 	/** Return tile that exists in given row and column index */
 	UFUNCTION(BlueprintCallable, Category = "Laser Chess")
 	FORCEINLINE class ALCBoardTile* GetTileByRowColumn(int32 RowIndex, int32 ColumnIndex) const;

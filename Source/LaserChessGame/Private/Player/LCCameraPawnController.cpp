@@ -11,11 +11,15 @@
 #include "Online/LCGameState.h"
 
 #include "Game/LaserChessGameTypes.h"
+#include "Game/LCBoardTile.h"
+#include "Game/LCBoardPawn.h"
+#include "Kismet/GameplayStatics.h"
 
 ALCCameraPawnController::ALCCameraPawnController(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	PlayerCameraManagerClass = ALCPawnCameraManager::StaticClass();
 	bShowMouseCursor = true;
+	PawnTileRegistrationUpdate = 0.5f;
 }
 
 void ALCCameraPawnController::OnPossess(APawn* InPawn)
@@ -37,7 +41,7 @@ void ALCCameraPawnController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	// Failsafe If LaserChessGameStateRef could not be set on begin play try to set it every frame
+	// Failsafe If LaserChessGameStateRef could not be set on begin play try to set it every frame until we succeed.
 	if(!LaserChessGameStateRef)
 	{
 		UE_LOG(LogLaserChess, Log, TEXT("Laser Chess Player Controller: Trying to set Game State Ref from Tick."));
@@ -58,8 +62,10 @@ void ALCCameraPawnController::OnPlayerControllerReady()
 	{
 		bHasValidGameStateOnClient = true;
 		SyncToClientGameState(bHasValidGameStateOnClient);
-		// @TODO: Inform Game state to register spawned tiles and pawns
 		
+		// As now game state is valid check for pawn and tiles
+		GetWorldTimerManager().SetTimer(TimeHandle_ClientGameStatePawnTileRegister, this,
+			&ALCCameraPawnController::ClientGameStatePawnTileRegister, PawnTileRegistrationUpdate, true);
 	}
 }
 
@@ -83,10 +89,56 @@ void ALCCameraPawnController::CenterMouseCursor()
 	SetMouseLocation(SizeX, SizeY);
 }
 
+bool ALCCameraPawnController::IsPlayerReadyForInitGame() const
+{
+	return bHasValidGameStateOnClient;
+}
+
+EPawnTeam ALCCameraPawnController::GetPlayerChosenTeam() const
+{
+	return EPawnTeam::EPT_TeamA; // TODO: For now first player to join will always be Player Team A.
+}
+
+void ALCCameraPawnController::SetServerPawnTeam(EPawnTeam NewTeam)
+{
+	if(GetLocalRole() == ROLE_Authority)
+	{
+		PawnTeam = NewTeam;
+
+		// Set team info inside client
+		SetClientPawnTeam(PawnTeam);
+	}
+	else
+	{
+		UE_LOG(LogLaserChess, Warning, TEXT("SetServerPawnTeam is not called from autharity."));
+	}
+}
+
+void ALCCameraPawnController::ClientGameStatePawnTileRegister()
+{
+	TArray<AActor*> BoardTiles, BoardPawns;
+	UGameplayStatics::GetAllActorsOfClass(this, ALCBoardTile::StaticClass(), BoardTiles);
+	UGameplayStatics::GetAllActorsOfClass(this, ALCBoardPawn::StaticClass(), BoardPawns);
+	
+	if(BoardTiles.Num() == LC_BOARD_ROWS * LC_BOARD_COLUMNS || BoardPawns.Num() == LC_BOARD_PAWNS)
+	{
+		GetWorldTimerManager().ClearTimer(TimeHandle_ClientGameStatePawnTileRegister);
+		LaserChessGameStateRef->RegisterTilesAndPawnsClient(BoardTiles, BoardPawns);
+	}
+}
+
 void ALCCameraPawnController::SyncToClientGameState_Implementation(bool bState)
 {
 	UE_LOG(LogLaserChess, Warning, TEXT("Laser Chess Player Controller: [%s] SyncToClientGameState State Changed: %d"), *GetName(), bState);
 	bHasValidGameStateOnClient = bState;
+}
+
+void ALCCameraPawnController::SetClientPawnTeam_Implementation(EPawnTeam NewTeam)
+{
+	PawnTeam = NewTeam;
+	ResetCamera();
+	bShowMouseCursor = true;
+	CenterMouseCursor();
 }
 
 void ALCCameraPawnController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

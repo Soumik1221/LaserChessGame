@@ -24,10 +24,6 @@ void ALCGameState::BeginPlay()
 		if (ServerGameMode)
 		{
 			UE_LOG(LogLaserChess, Log, TEXT("Laser Chess Game State: Authority Game Mode is Server Game Mode"));
-
-			// @TODO: Should be called on game mode
-			SpawnGameTilesServer();
-			SpawnGamePawnServer(EBoardSetup::EBS_ACE);
 		}
 	}
 }
@@ -57,10 +53,15 @@ void ALCGameState::SpawnGameTilesServer()
 					SpawnLocation.X += (2 * r + 1) * TileSize * 0.5f;
 					SpawnLocation.Y += (2 * c + 1) * TileSize * 0.5f;
 					
-					if (ALCBoardTile* SpawnedTile = GetWorld()->SpawnActor<ALCBoardTile>(BoardTileClass, SpawnLocation, FRotator::ZeroRotator, TileSpawnParams))
+					if (ALCBoardTile* SpawnedTile = GetWorld()->SpawnActor<ALCBoardTile>(BoardTileClass,
+						SpawnLocation, FRotator::ZeroRotator, TileSpawnParams))
 					{
-						BoardTiles.Add(SpawnedTile);
-						SpawnedTile->InitServerBoardTile(r, c);
+						int32 Index;
+						if(LCHelperFunc::GetIndexFromRowColumn(r, c, Index))
+						{
+							BoardTiles[Index] = SpawnedTile;
+							SpawnedTile->InitServerBoardTile(r, c);
+						}
 					}
 				}
 			}
@@ -95,14 +96,15 @@ void ALCGameState::SpawnGamePawnServer(EBoardSetup Setup)
 			FActorSpawnParameters PawnSpawnParams;
 			PawnSpawnParams.Owner = this;
 			PawnSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
+			int32 Index = 0;
 			// Spawn Laser Pawn Pieces
 			for (int i = 0; i < LC_BOARD_PAWN_COUNT_LASER; i++)
 			{
 				const FPawnSpawnData _SpawnData = BoardPawnSetup.LaserPawn[i];
 				class ALCBoardPawn* LaserChessPawn = GetWorld()->SpawnActor<ALCBoardPawn>(BoardPawnClass, FVector::ZeroVector, FRotator(0.0f, _SpawnData.PawnSpawnYaw, 0.0f), PawnSpawnParams);
 				LaserChessPawn->InitServerBoardPawn(GetTileByRowColumn(_SpawnData.RowIndex, _SpawnData.ColumnIndex), BoardPawns.Num(), _SpawnData.bIsTeamA, EPawnType::EPT_Laser);
-				BoardPawns.Add(LaserChessPawn);
+				BoardPawns[Index] = LaserChessPawn;
+				Index++;
 			}
 
 			// Spawn King Pawn Pieces
@@ -111,7 +113,8 @@ void ALCGameState::SpawnGamePawnServer(EBoardSetup Setup)
 				const FPawnSpawnData _SpawnData = BoardPawnSetup.KingPawn[i];
 				class ALCBoardPawn* LaserChessPawn = GetWorld()->SpawnActor<ALCBoardPawn>(BoardPawnClass, FVector::ZeroVector, FRotator(0.0f, _SpawnData.PawnSpawnYaw, 0.0f), PawnSpawnParams);
 				LaserChessPawn->InitServerBoardPawn(GetTileByRowColumn(_SpawnData.RowIndex, _SpawnData.ColumnIndex), BoardPawns.Num(), _SpawnData.bIsTeamA, EPawnType::EPT_King);
-				BoardPawns.Add(LaserChessPawn);
+				BoardPawns[Index] = LaserChessPawn;
+				Index++;
 			}
 
 			// Spawn Switch Pawn Pieces
@@ -120,7 +123,8 @@ void ALCGameState::SpawnGamePawnServer(EBoardSetup Setup)
 				const FPawnSpawnData _SpawnData = BoardPawnSetup.SwitchPawn[i];
 				class ALCBoardPawn* LaserChessPawn = GetWorld()->SpawnActor<ALCBoardPawn>(BoardPawnClass, FVector::ZeroVector, FRotator(0.0f, _SpawnData.PawnSpawnYaw, 0.0f), PawnSpawnParams);
 				LaserChessPawn->InitServerBoardPawn(GetTileByRowColumn(_SpawnData.RowIndex, _SpawnData.ColumnIndex), BoardPawns.Num(), _SpawnData.bIsTeamA, EPawnType::EPT_Switch);
-				BoardPawns.Add(LaserChessPawn);
+				BoardPawns[Index] = LaserChessPawn;
+				Index++;
 			}
 			
 			// Spawn Defender Pawn Pieces
@@ -129,7 +133,8 @@ void ALCGameState::SpawnGamePawnServer(EBoardSetup Setup)
 				const FPawnSpawnData _SpawnData = BoardPawnSetup.DefenderPawn[i];
 				class ALCBoardPawn* LaserChessPawn = GetWorld()->SpawnActor<ALCBoardPawn>(BoardPawnClass, FVector::ZeroVector, FRotator(0.0f, _SpawnData.PawnSpawnYaw, 0.0f), PawnSpawnParams);
 				LaserChessPawn->InitServerBoardPawn(GetTileByRowColumn(_SpawnData.RowIndex, _SpawnData.ColumnIndex), BoardPawns.Num(), _SpawnData.bIsTeamA, EPawnType::EPT_Defender);
-				BoardPawns.Add(LaserChessPawn);
+				BoardPawns[Index] = LaserChessPawn;
+				Index++;
 			}
 
 			// Spawn Deflector Pawn Pieces
@@ -138,10 +143,50 @@ void ALCGameState::SpawnGamePawnServer(EBoardSetup Setup)
 				const FPawnSpawnData _SpawnData = BoardPawnSetup.DeflectorPawn[i];
 				class ALCBoardPawn* LaserChessPawn = GetWorld()->SpawnActor<ALCBoardPawn>(BoardPawnClass, FVector::ZeroVector, FRotator(0.0f, _SpawnData.PawnSpawnYaw, 0.0f), PawnSpawnParams);
 				LaserChessPawn->InitServerBoardPawn(GetTileByRowColumn(_SpawnData.RowIndex, _SpawnData.ColumnIndex), BoardPawns.Num(), _SpawnData.bIsTeamA, EPawnType::EPT_Deflector);
-				BoardPawns.Add(LaserChessPawn);
+				BoardPawns[Index] = LaserChessPawn;
+				Index++;
 			}
 		}
 	}
+}
+
+void ALCGameState::RegisterTilesAndPawnsClient(TArray<AActor*>& InTileActors, TArray<AActor*>& InPawnActors)
+{
+	UE_LOG(LogTemp, Log, TEXT("Tiles Actors: %d"), InTileActors.Num());
+
+	for (AActor* Tile : InTileActors)
+	{
+		if (ALCBoardTile* LCTile = Cast<ALCBoardTile>(Tile))
+		{
+			LCTile->UpdateTilesVisualsForClients();
+			BoardTiles[LCTile->GetIndex()] = LCTile;
+		}
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Pawn Actors: %d"), InPawnActors.Num());
+	for (AActor* Pawn : InPawnActors)
+	{
+		if (ALCBoardPawn* LCPawn = Cast<ALCBoardPawn>(Pawn))
+		{
+			LCPawn->UpdatePawnsVisualsForClients();
+			BoardPawns[LCPawn->GetIndex()] = LCPawn;
+		}
+	}
+}
+
+bool ALCGameState::IsClientGameStateHaveAllTilesAndPawns() const
+{
+	for (const ALCBoardTile* Tile : BoardTiles)
+	{
+		if(!Tile) return false;
+	}
+
+	for (const ALCBoardPawn* Pawn : BoardPawns)
+	{
+		if(!Pawn) return false;
+	}
+
+	return true;
 }
 
 ALCBoardTile* ALCGameState::GetTileByRowColumn(int32 RowIndex, int32 ColumnIndex) const
@@ -157,10 +202,10 @@ ALCBoardTile* ALCGameState::GetTileByRowColumn(int32 RowIndex, int32 ColumnIndex
 
 ALCBoardTile* ALCGameState::GetTileByIndex(int32 Index) const
 {
-	return BoardTiles.IsValidIndex(Index) ? BoardTiles[Index] : nullptr;
+	return (Index >= 0 && Index < BoardTiles.Num()) ? BoardTiles[Index] : nullptr;
 }
 
 ALCBoardPawn* ALCGameState::GetPawnByIndex(int32 Index) const
 {
-	return BoardPawns.IsValidIndex(Index) ? BoardPawns[Index] : nullptr;;
+	return (Index >= 0 && Index < BoardPawns.Num()) ? BoardPawns[Index] : nullptr;;
 }
